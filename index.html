@@ -11,7 +11,11 @@
     <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#0056b3">
+    <meta name="theme-color" content="#d32f2f">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="icon-192.png">
 
     <style>
         :root {
@@ -899,5 +903,26 @@
     }
     
 </script>
+    <script>
+      // PWA service worker: GitHub Pages'teki yeni sürümü otomatik algılar.
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', async () => {
+          try {
+            const registration = await navigator.serviceWorker.register('./sw.js', { scope: './' });
+            registration.addEventListener('updatefound', () => {
+              const worker = registration.installing;
+              if (!worker) return;
+              worker.addEventListener('statechange', () => {
+                if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+                  const update = document.createElement('div');
+                  update.innerHTML = '<div style="position:fixed;left:12px;right:12px;bottom:12px;z-index:9999;background:#d32f2f;color:white;padding:14px 16px;border-radius:10px;box-shadow:0 4px 18px #0008;font-size:14px">Yeni sürüm hazır. <button style="float:right;background:white;color:#9a0007;border:0;border-radius:6px;padding:6px 10px;font-weight:bold" onclick="location.reload()">Güncelle</button></div>';
+                  document.body.appendChild(update);
+                }
+              });
+            });
+          } catch (error) { console.warn('Service worker kaydı yapılamadı:', error); }
+        });
+      }
+    </script>
 </body>
 </html>
