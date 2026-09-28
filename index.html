@@ -752,154 +752,150 @@
             return;
         }
 
-        // Kayıtları tarih, bölge müdürü, satış yöneticisi ve distribütör kriterlerine göre gruplayalım
-        const gruplar = {};
-
+        // Aynı günün farklı bayi işaretlemelerini tek blokta topla; bayi sütunları yan yana oluşsun.
+        const raporMap = {};
         globalVeriler.forEach(item => {
-            const tarih = item.tarih || "";
-            const bm = item.bolge_muduru || "";
-            const bsy = item.satis_yoneticisi || "";
-            const dist = item.distributor || "";
-            
-            const anahtar = `${tarih}_${bm}_${bsy}_${dist}`;
+            const tarih = item.tarih || item.Tarih || "";
+            const bolgeMuduru = item.bolge_muduru || item.bolgeMuduru || "";
+            const bolgeSahaYonetici = item.satis_yoneticisi || item.satis_yoneti || item.kullanici || "";
+            const distributor = item.distributor || item.isyeri_adi || "";
+            // Distribütörü anahtara katma: aynı gün farklı işaretlenen bayiler Bayi 1, Bayi 2...
+            // olarak aynı Excel bloğunda yan yana aktarılmalıdır.
+            const key = `${tarih}_${bolgeMuduru}_${bolgeSahaYonetici}`;
 
-            if (!gruplar[anahtar]) {
-                gruplar[anahtar] = {
-                    tarih: tarih,
-                    bolge_muduru: bm,
-                    satis_yoneticisi: bsy,
-                    distributor: dist,
-                    ziyaretler: []
+            if (!raporMap[key]) {
+                raporMap[key] = {
+                    tarih,
+                    bolgeMuduru,
+                    bolgeSahaYonetici,
+                    distributors: [],
+                    bayiler: []
                 };
             }
-            gruplar[anahtar].ziyaretler.push(item);
-        });
 
-        // Başlık satırı (1. Satır)
-        const headerRow = [
-            "Tarih", "Bölge Müdürü", "Bölge Saha Yöneticisi", "Distribütör", "Ziyaret"
-        ];
-        for (let i = 1; i <= 16; i++) {
-            headerRow.push(`Bayi ${i}`);
-        }
-        headerRow.push("Toplam Ziyaret", "Hedef", "Hedef Gerçekleşme");
-
-        const excelRows = [headerRow];
-        const merges = []; 
-        let currentRow = 2;
-
-        Object.values(gruplar).forEach(grup => {
-            const zListesi = grup.ziyaretler;
-            const startR = currentRow;
-            const endR = startR + 5; // Her blok 6 satır (örn: 2'den 7'ye)
-
-            // Dikey hücre birleştirmeleri (A, B, C, D ve V, W, X)
-            merges.push({ s: { r: startR - 1, c: 0 }, e: { r: endR - 1, c: 0 } }); // Tarih (A)
-            merges.push({ s: { r: startR - 1, c: 1 }, e: { r: endR - 1, c: 1 } }); // Bölge Müdürü (B)
-            merges.push({ s: { r: startR - 1, c: 2 }, e: { r: endR - 1, c: 2 } }); // Bölge Saha Yöneticisi (C)
-            merges.push({ s: { r: startR - 1, c: 3 }, e: { r: endR - 1, c: 3 } }); // Distribütör (D)
-            merges.push({ s: { r: startR - 1, c: 21 }, e: { r: endR - 1, c: 21 } }); // Toplam Ziyaret (V)
-            merges.push({ s: { r: startR - 1, c: 22 }, e: { r: endR - 1, c: 22 } }); // Hedef (W)
-            merges.push({ s: { r: startR - 1, c: 23 }, e: { r: endR - 1, c: 23 } }); // Hedef Gerçekleşme (X)
-
-            // 6 dikey satır içeriği
-            let rowIsyeri = [grup.tarih, grup.bolge_muduru, grup.satis_yoneticisi, grup.distributor, "Bayi / İşyeri İsmi"];
-            let rowYetkili = ["", "", "", "", "Görüşülen Yetkili"];
-            let rowTelefon = ["", "", "", "", "Telefon"];
-            let rowStok = ["", "", "", "", "Mevcut Akü Stok Adedi"];
-            let rowRakip = ["", "", "", "", "Rakip / Diğer Markalar"];
-            let rowNotlar = ["", "", "", "", "Notlar "];
-
-            // 16 bayi sütununu doldur
-            for (let i = 0; i < 16; i++) {
-                const z = zListesi[i];
-                if (z) {
-                    rowIsyeri.push(z.isyeri_adi || "");
-                    rowYetkili.push(z.sahip_ad_soyad || "");
-                    rowTelefon.push(z.telefon || "");
-                    rowStok.push(z.urun_adedi || "");
-                    rowRakip.push(z.markalar || "");
-                    rowNotlar.push(z.notlar || "");
-                } else {
-                    rowIsyeri.push("");
-                    rowYetkili.push("");
-                    rowTelefon.push("");
-                    rowStok.push("");
-                    rowRakip.push("");
-                    rowNotlar.push("");
-                }
+            if (distributor && !raporMap[key].distributors.includes(distributor)) {
+                raporMap[key].distributors.push(distributor);
             }
 
-            // Formüller (V sütunu: BAĞ_DEĞ_DOLU_SAY, W: Hedef, X: Gerçekleşme oranı)
-            let formulaToplam = `=BAĞ_DEĞ_DOLU_SAY(F${startR}:U${startR})`;
-            let formulaHedef = 7;
-            let formulaGerceklesme = `=V${startR}/W${startR}`;
-
-            rowIsyeri.push(formulaToplam, formulaHedef, formulaGerceklesme);
-            rowYetkili.push("", "", "");
-            rowTelefon.push("", "", "");
-            rowStok.push("", "", "");
-            rowRakip.push("", "", "");
-            rowNotlar.push("", "", "");
-
-            excelRows.push(rowIsyeri);
-            excelRows.push(rowYetkili);
-            excelRows.push(rowTelefon);
-            excelRows.push(rowStok);
-            excelRows.push(rowRakip);
-            excelRows.push(rowNotlar);
-
-            currentRow += 6;
+            raporMap[key].bayiler.push({
+                isyeriAdi: item.isyeri_adi || "",
+                gorusulenYetkili: item.sahip_ad_soyad || item.yetkili_kisi || "",
+                telefon: item.telefon || "",
+                mevcutAkuStok: item.urun_adedi || item.mevcut_stok || item.stok_adedi || item.stok || item.adet || "",
+                rakipMarkalar: item.markalar || item.rakip_markalar || ""
+            });
         });
 
-        const worksheet = XLSX.utils.aoa_to_sheet(excelRows);
+        // ADMIN ile aynı: gruplar içindeki en yüksek bayi sayısı kadar sütun oluştur.
+        let maxBayiSayisi = 1;
+        Object.values(raporMap).forEach(grup => {
+            maxBayiSayisi = Math.max(maxBayiSayisi, grup.bayiler.length);
+        });
+
+        const sheetData = [];
+        const headers = ["Tarih", "Bölge Müdürü", "Bölge Saha Yöneticisi", "Distribütör", "Ziyaret"];
+        for (let b = 1; b <= maxBayiSayisi; b++) headers.push(`Bayi ${b}`);
+        headers.push("Toplam Ziyaret", "Hedef", "Hedef Gerçekleşme");
+        sheetData.push(headers);
+
+        const merges = [];
+        let currentRowIndex = 1;
+        Object.values(raporMap).forEach(grup => {
+            const satirIsmi = [
+                "Bayi / İşyeri İsmi",
+                "Görüşülen Yetkili",
+                "Telefon",
+                "Mevcut Akü Stok Adedi",
+                "Rakip / Diğer Markalar"
+            ];
+
+            for (let i = 0; i < 5; i++) {
+                const row = [
+                    i === 0 ? grup.tarih : "",
+                    i === 0 ? grup.bolgeMuduru : "",
+                    i === 0 ? grup.bolgeSahaYonetici : "",
+                    i === 0 ? grup.distributors.join(" / ") : "",
+                    satirIsmi[i]
+                ];
+
+                for (let b = 0; b < maxBayiSayisi; b++) {
+                    const bayiVerisi = grup.bayiler[b];
+                    if (!bayiVerisi) {
+                        row.push("");
+                    } else if (i === 0) {
+                        row.push(bayiVerisi.isyeriAdi);
+                    } else if (i === 1) {
+                        row.push(bayiVerisi.gorusulenYetkili);
+                    } else if (i === 2) {
+                        row.push(bayiVerisi.telefon);
+                    } else if (i === 3) {
+                        row.push(bayiVerisi.mevcutAkuStok);
+                    } else {
+                        row.push(bayiVerisi.rakipMarkalar);
+                    }
+                }
+
+                const toplamZiyaret = grup.bayiler.length;
+                const hedef = 7;
+                const gerceklesmeYuzdesi = Math.round((toplamZiyaret / hedef) * 100) + "%";
+                row.push(i === 0 ? toplamZiyaret : "");
+                row.push(i === 0 ? hedef : "");
+                row.push(i === 0 ? gerceklesmeYuzdesi : "");
+                sheetData.push(row);
+            }
+
+            const startRow = currentRowIndex;
+            const endRow = currentRowIndex + 4;
+            const toplamSutunSayisi = headers.length;
+            [0, 1, 2, 3, toplamSutunSayisi - 3, toplamSutunSayisi - 2, toplamSutunSayisi - 1].forEach(colIdx => {
+                merges.push({ s: { r: startRow, c: colIdx }, e: { r: endRow, c: colIdx } });
+            });
+            currentRowIndex += 5;
+        });
+
+        const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
         worksheet['!merges'] = merges;
 
-        // Hücre Stilleri ve Renk Tanımlamaları
         const thinBorder = {
-            top: { style: "thick", color: { rgb: "000000" } },
-            bottom: { style: "thick", color: { rgb: "000000" } },
-            left: { style: "thick", color: { rgb: "000000" } },
-            right: { style: "thick", color: { rgb: "000000" } }
+            top: { style: "thin", color: { rgb: "000000" } },
+            bottom: { style: "thin", color: { rgb: "000000" } },
+            left: { style: "thin", color: { rgb: "000000" } },
+            right: { style: "thin", color: { rgb: "000000" } }
         };
 
-        const alignCenter = { horizontal: "center", vertical: "center", wrapText: true };
         const range = XLSX.utils.decode_range(worksheet['!ref']);
-
-        // 1. Satır Stilleri (A1:E1 Yeşil, F1:U1 Ten Rengi, V1:X1 Açık Kırmızı)
-        for (let C = range.s.c; C <= range.e.c; ++C) {
-            const cellAddress = XLSX.utils.encode_cell({ r: 0, c: C });
-            if (!worksheet[cellAddress]) continue;
-            
-            if (!worksheet[cellAddress].s) worksheet[cellAddress].s = {};
-            worksheet[cellAddress].s.alignment = alignCenter;
-            worksheet[cellAddress].s.border = thinBorder;
-            worksheet[cellAddress].s.font = { bold: true };
-
-            if (C >= 0 && C <= 4) {
-                worksheet[cellAddress].s.fill = { fgColor: { rgb: "C6EFCE" } };
-                worksheet[cellAddress].s.font.color = { rgb: "000000" };
-            } else if (C >= 5 && C <= 20) {
-                worksheet[cellAddress].s.fill = { fgColor: { rgb: "FCE4D6" } };
-                worksheet[cellAddress].s.font.color = { rgb: "1F4E78" };
-            } else if (C >= 21 && C <= 23) {
-                worksheet[cellAddress].s.fill = { fgColor: { rgb: "F8CBAD" } };
-                worksheet[cellAddress].s.font.color = { rgb: "000000" };
-            }
-        }
-
-        // X Sütunu (Hedef Gerçekleşme - Sütun İndeksi 23) hücrelerine Yüzde (%) formatı uygulama
-        for (let R = 1; R <= range.e.r; ++R) {
-            const cellAddress = XLSX.utils.encode_cell({ r: R, c: 23 }); // X sütunu
-            if (worksheet[cellAddress]) {
+        for (let R = range.s.r; R <= range.e.r; ++R) {
+            for (let C = range.s.c; C <= range.e.c; ++C) {
+                const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
+                if (!worksheet[cellAddress]) worksheet[cellAddress] = { t: 's', v: '' };
                 if (!worksheet[cellAddress].s) worksheet[cellAddress].s = {};
-                worksheet[cellAddress].z = "0%"; // Excel yüzde formatı
+                worksheet[cellAddress].s.alignment = { vertical: "center", horizontal: "center", wrapText: false };
+                worksheet[cellAddress].s.border = thinBorder;
+
+                if (R >= 1) {
+                    worksheet[cellAddress].s.font = { name: "Calibri", sz: 10, color: { rgb: "000000" } };
+                    if (R % 5 === 2) {
+                        worksheet[cellAddress].t = 's';
+                        worksheet[cellAddress].v = String(worksheet[cellAddress].v || "");
+                    }
+                }
+
+                if (R === 0) {
+                    worksheet[cellAddress].s.font = { name: "Calibri", sz: 11, bold: true, color: { rgb: "000000" } };
+                    if (C >= 0 && C <= 4) {
+                        worksheet[cellAddress].s.fill = { patternType: "solid", fgColor: { rgb: "D3D3D3" } };
+                    } else if (C >= 5 && C < range.e.c - 2) {
+                        worksheet[cellAddress].s.fill = { patternType: "solid", fgColor: { rgb: "C6EFCE" } };
+                    } else {
+                        worksheet[cellAddress].s.fill = { patternType: "solid", fgColor: { rgb: "D3D3D3" } };
+                    }
+                }
             }
         }
 
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "Saha Ziyaretleri");
-        XLSX.writeFile(workbook, "MutluAku_Saha_Ziyaretleri.xlsx");
+        XLSX.writeFile(workbook, "Mutlu_Aku_Saha_Ziyaret_Raporu.xlsx");
     }
     
 </script>
