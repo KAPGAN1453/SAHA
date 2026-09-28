@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mutlu Akü - Saha Ziyaret Portalı</title>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    <!-- SheetJS (Excel için) -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0056b3">
+
+    <style>
+        :root {
+            --primary-red: #d32f2f;
+            --dark-red: #9a0007;
+            --bg-dark: #121212;
+            --card-bg: #1e1e1e;
+            --input-bg: #2d2d2d;
+            --text-light: #e0e0e0;
+            --text-gray: #aaaaaa;
+            --border-color: #333333;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: var(--bg-dark); color: var(--text-light); padding: 20px; display: flex; justify-content: center; }
+        .container { width: 100%; max-width: 600px; background: var(--card-bg); padding: 25px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); border: 1px solid var(--border-color); }
+        
+        .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 25px; border-bottom: 2px solid var(--primary-red); padding-bottom: 15px; }
+        .logo-area { display: flex; align-items: center; gap: 12px; }
+        .logo-circle { background: var(--primary-red); color: white; width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; text-align: center; line-height: 1.1; }
+        .title h1 { font-size: 18px; color: white; letter-spacing: 0.5px; }
+        .title p { font-size: 12px; color: var(--text-gray); }
+
+        .auth-container { display: flex; flex-direction: column; gap: 15px; }
+        .auth-title { font-size: 16px; font-weight: bold; color: white; margin-bottom: 5px; border-left: 3px solid var(--primary-red); padding-left: 8px; }
+
+        .form-group { margin-bottom: 15px; }
+        label { display: block; font-size: 13px; margin-bottom: 6px; color: var(--text-gray); font-weight: 500; }
+        
+        input, select, textarea { 
+            width: 100%; 
+            padding: 10px 12px; 
+            background-color: #2d2d2d !important; 
+            border: 1px solid var(--border-color); 
+            border-radius: 6px; 
+            color: #ffffff !important; 
+            font-size: 14px; 
+            outline: none; 
+            transition: border-color 0.3s; 
+        }
+        
+        input:read-only {
+            background-color: #222222 !important;
+            color: #888888 !important;
+            cursor: not-allowed;
+        }
+
+        input:focus, select:focus, textarea:focus { border-color: var(--primary-red); }
+        
+        select option { 
+            background-color: #2d2d2d !important; 
+            color: #ffffff !important; 
+            padding: 10px; 
+        }
+
+        textarea { resize: vertical; min-height: 80px; }
+
+        button.btn-primary { width: 100%; background: var(--primary-red); color: white; border: none; padding: 12px; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; transition: background 0.3s; margin-top: 5px; }
+        button.btn-primary:hover { background: var(--dark-red); }
+        
+        button.btn-gray { background: #444; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+        button.btn-gray:hover { background: #555; }
+
+        .records-section { margin-top: 30px; border-top: 1px solid var(--border-color); padding-top: 20px; }
+        .record-item { background: var(--input-bg); padding: 12px; border-radius: 6px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; border-left: 4px solid var(--primary-red); }
+        
+        .hidden { display: none !important; }
+        .user-badge { display: flex; justify-content: space-between; align-items: center; background: var(--input-bg); padding: 10px 15px; border-radius: 6px; margin-bottom: 20px; font-size: 14px; }
+        
+        .footer-credit { text-align: center; margin-top: 20px; font-size: 11px; color: var(--text-gray); }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- Header -->
+    <div class="header">
+        <div class="logo-area">
+            <div class="logo-circle">MUTLU AKÜ</div>
+            <div class="title">
+                <h1>Saha Ziyaret Portalı</h1>
+                <p>Bayi ve Ziyaret Yönetim Sistemi</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- GİRİŞ EKRANI (Kayıt Ol kaldırıldı) -->
+    <div id="authSection" class="auth-container">
+        <div class="auth-title">Sistem Girişi</div>
+        <div id="loginForm">
+            <div class="form-group">
+                <label>Kullanıcı Adı</label>
+                <input type="text" id="loginUser" placeholder="Kullanıcı adınızı girin (Örn: UKUTLUK)">
+            </div>
+            <div class="form-group">
+                <label>Şifre</label>
+                <input type="password" id="loginPass" placeholder="Şifrenizi girin">
+            </div>
+            <button class="btn-primary" onclick="girisYap()">Sisteme Giriş Yap</button>
+        </div>
+    </div>
+
+    <!-- ANA FORM VE YÖNETİM EKRANI -->
+    <div id="mainSection" class="hidden">
+        <div class="user-badge">
+            <span id="currentUserBadge">👤 UMITK</span>
+            <div style="display: flex; gap: 6px;">
+                <button class="btn-gray" onclick="sifreDegistirModal()">Şifre Değiştir</button>
+                <button class="btn-gray" onclick="cikisYap()">Çıkış Yap</button>
+            </div>
+        </div>
+
+        <form id="visitForm" onsubmit="event.preventDefault(); kaydet();">
+            <input type="hidden" id="editId">
+            
+            <div class="form-group">
+                <label>Ziyaret Tarihi (Bugün)</label>
+                <input type="date" id="tarih" readonly required>
+            </div>
+
+            <div class="form-group">
+                <label>Bölge Müdürü</label>
+                <select id="bolge_muduru" onchange="yoneticileriGuncelle()">
+                    <option value="">Seçiniz...</option>
+                    <option value="Mustafa Kuşcu">Mustafa Kuşcu</option>
+                    <option value="Berk Azat">Berk Azat</option>
+                    <option value="Hürhan Sert">Hürhan Sert</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Bölge Satış Yöneticisi</label>
+                <select id="satis_yoneticisi" disabled onchange="distributorleriGuncelle()">
+                    <option value="">Önce Bölge Müdürü Seçiniz...</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Distribütör / Bayi</label>
+                <select id="distributor" disabled>
+                    <option value="">Önce Saha Yöneticisi Seçiniz...</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>İl Seçimi</label>
+                <select id="il_secimi" onchange="ilceleriGuncelle()">
+                    <option value="">İl Seçiniz</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>İlçe Seçimi</label>
+                <select id="ilce_secimi">
+                    <option value="">Önce İl Seçiniz</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Bayi / İşyeri İsmi</label>
+                <input type="text" id="isyeri_adi" placeholder="İşyeri ünvanı" required>
+            </div>
+
+            <div class="form-group">
+                <label>Görüşülen Yetkili (Ad Soyad)</label>
+                <input type="text" id="sahip_ad_soyad" placeholder="Yetkili kişi">
+            </div>
+
+            <div class="form-group">
+                <label>Telefon Numarası</label>
+                <input type="tel" id="telefon" placeholder="05XX XXX XX XX">
+            </div>
+
+            <div class="form-group">
+                <label>Mevcut Akü Stok Adedi</label>
+                <input type="number" id="urun_adedi" placeholder="Örn: 45">
+            </div>
+
+            <div class="form-group">
+                <label>Rakip / Diğer Markalar</label>
+                <input type="text" id="markalar" placeholder="Bulunan diğer markalar">
+            </div>
+
+            <div class="form-group">
+                <label>Notlar</label>
+                <textarea id="notlar" placeholder="Ziyaret ile ilgili ek notlar ve açıklamalar..."></textarea>
+            </div>
+
+            <button type="submit" class="btn-primary">Ziyareti Kaydet / Güncelle</button>
+            <button type="button" class="btn-gray" style="width:100%; margin-top:8px;" onclick="formTemizle()">Formu Temizle</button>
+        </form>
+
+        <!-- Kayıtlar ve Raporlama -->
+        <div class="records-section">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h3 id="recordsTitle" style="font-size: 15px;">Ziyaret Kayıtlarım</h3>
+                <button class="btn-primary" style="margin-top:0; padding: 6px 12px; font-size: 12px; width: auto;" onclick="exceleAktar()">📊 Excel'e Aktar</button>
+            </div>
+            <div id="recordsList">
+                <!-- Kayıtlar dinamik yüklenecek -->
+            </div>
+        </div>
+    </div>
+
+    <div class="footer-credit">Designed & Developed by Ümit Tahir KUTLUK</div>
+</div>
+
+<script>
+    // İl ve İlçe Veritabanı
+    const ilIlceVerisi = {
+        "Adana": ["Aladağ", "Ceyhan", "Çukurova", "Feke", "İmamoğlu", "Karaisalı", "Karataş", "Kozan", "Pozantı", "Saimbeyli", "Sarıçam", "Seyhan", "Tufanbeyli", "Yumurtalık", "Yüreğir"],
+        "Adıyaman": ["Besni", "Çelikhan", "Gerger", "Gölbaşı", "Kahta", "Merkez", "Samsat", "Sincik", "Tut"],
+        "Afyonkarahisar": ["Başmakçı", "Bayat", "Bolvadin", "Çay", "Çobanlar", "Dazkırı", "Dinar", "Emirdağ", "Evciler", "Hocalar", "İhsaniye", "İscehisar", "Kızılören", "Merkez", "Sandıklı", "Sinanpaşa", "Sultandağı", "Şuhut"],
+        "Ağrı": ["Diyadin", "Doğubayazıt", "Eleşkirt", "Hamur", "Merkez", "Patnos", "Taşlıçay", "Tutak"],
+        "Amasya": ["Göynücek", "Gümüşhacıköy", "Hamamözü", "Merkez", "Merzifon", "Suluova", "Taşova"],
+        "Ankara": ["Akyurt", "Altındağ", "Ayaş", "Bala", "Beypazarı", "Çamlıdere", "Çankaya", "Çubuk", "Elmadağ", "Etimesgut", "Evren", "Gölbaşı", "Güdül", "Haymana", "Kahramankazan", "Kalecik", "Keçiören", "Kızılcahamam", "Mamak", "Nallıhan", "Polatlı", "Pursaklar", "Sincan", "Şereflikoçhisar", "Yenimahalle"],
+        "Antalya": ["Akseki", "Aksu", "Alanya", "Demre", "Döşemealtı", "Elmalı", "Finike", "Gazipaşa", "Gündoğmuş", "İbradı", "Kaş", "Kemer", "Kepez", "Konyaaltı", "Korkuteli", "Kumluca", "Manavgat", "Muratpaşa", "Serik"],
+        "Artvin": ["Ardanuç", "Arhavi", "Borçka", "Hopa", "Kemalpaşa", "Merkez", "Murgul", "Şavşat", "Yusufeli"],
+        "Aydın": ["Bozdoğan", "Buharkent", "Çine", "Didim", "Efeler", "Germencik", "İncirliova", "Karacasu", "Karpuzlu", "Koçarli", "Köşk", "Kuşadası", "Kuyucak", "Nazilli", "Söke", "Sultanhisar", "Yenipazar"],
+        "Balıkesir": ["Altıeylül", "Ayvalık", "Balya", "Bandırma", "Bigadiç", "Burhaniye", "Dursunbey", "Edremit", "Erdek", "Gömeç", "Gönen", "Havran", "İvrindi", "Karesi", "Kepsut", "Manyas", "Marmara", "Savaştepe", "Sındırgı", "Susurluk"],
+        "Bilecik": ["Bozüyük", "Gölpazarı", "İnhisar", "Merkez", "Osmaneli", "Pazaryeri", "Söğüt", "Yenipazar"],
+        "Bingöl": ["Adaklı", "Genç", "Karlıova", "Kiğı", "Merkez", "Solhan", "Yayladere", "Yedisu"],
+        "Bitlis": ["Adilcevaz", "Ahlat", "Güroymak", "Hizan", "Merkez", "Mutki", "Tatvan"],
+        "Bolu": ["Dörtdivan", "Gerede", "Göynük", "Kıbrıscık", "Mengen", "Merkez", "Mudurnu", "Seben", "Yeniçağa"],
+        "Burdur": ["Ağlasun", "Altınyayla", "Bucak", "Çavdır", "Çeltikçi", "Gölhisar", "Karamanlı", "Kemer", "Merkez", "Tefenni", "Yeşilova"],
+        "Bursa": ["Büyükorhan", "Gemlik", "Gürsu", "Harmancık", "İnegöl", "İznik", "Karacabey", "Keles", "Kestel", "Mudanya", "Mustafakemalpaşa", "Nilüfer", "Orhaneli", "Orhangazi", "Osmangazi", "Yenişehir", "Yıldırım"],
+        "Çanakkale": ["Ayvacık", "Bayramiç", "Biga", "Bozcaada", "Çan", "Eceabat", "Ezine", "Gelibolu", "Gökçeada", "Lapseki", "Merkez", "Yenice"],
+        "Çankırı": ["Atkaracalar", "Bayramören", "Çerkeş", "Eldivan", "Ilgaz", "Kızılırmak", "Korgun", "Kurşunlu", "Merkez", "Orta", "Şabanözü", "Yapraklı"],
+        "Çorum": ["Alaca", "Bayat", "Boğazkale", "Dodurga", "İskilip", "Kargı", "Laçin", "Mecitözü", "Merkez", "Oğuzlar", "Ortaköy", "Osmancık", "Sungurlu", "Uğurludağ"],
+        "Denizli": ["Acıpayam", "Babadağ", "Baklan", "Bekilli", "Beyağaç", "Bozkurt", "Buldan", "Çal", "Çameli", "Çardak", "Çivril", "Güney", "Honaz", "Kale", "Merkezefendi", "Pamukkale", "Sarayköy", "Serinhisar", "Tavas"],
+        "Diyarbakır": ["Bağlar", "Bismil", "Çermik", "Çınar", "Çüngüş", "Dicle", "Eğil", "Ergani", "Hani", "Hazro", "Kayapınar", "Kocaköy", "Kulp", "Lice", "Silvan", "Sur", "Yenişehir"],
+        "Edirne": ["Enez", "Havsa", "İpsala", "Keşan", "Lalapaşa", "Meriç", "Merkez", "Süloğlu", "Uzunköprü"],
+        "Elazığ": ["Ağın", "Alacakaya", "Arıcak", "Baskil", "Karakoçan", "Keban", "Kovancılar", "Maden", "Merkez", "Palu", "Sivrice"],
+        "Erzincan": ["Çayırlı", "İliç", "Kemah", "Kemaliye", "Merkez", "Otlukbeli", "Refahiye", "Tercan", "Üzümlü"],
+        "Erzurum": ["Aşkale", "Aziziye", "Çat", "Hınıs", "Horasan", "İspir", "Karaçoban", "Karayazı", "Köprüköy", "Narman", "Oltu", "Olur", "Palandöken", "Pasinler", "Pazaryolu", "Şenkaya", "Tekman", "Tortum", "Uzundere", "Yakutiye"],
+        "Eskişehir": ["Alpu", "Beylikova", "Çifteler", "Günyüzü", "Han", "İnönü", "Mahmudiye", "Mihalgazi", "Mihalıççık", "Odunpazarı", "Seyitgazi", "Sivrihisar", "Tepebaşı"],
+        "Gaziantep": ["Araban", "İslahiye", "Karkamış", "Nizip", "Nurdağı", "Oğuzeli", "Şahinbey", "Şehitkamil", "Yavuzeli"],
+        "Giresun": ["Alucra", "Bulancak", "Çamoluk", "Çanakçı", "Dereli", "Doğankent", "Espiye", "Eynesil", "Görele", "Güce", "Keşap", "Merkez", "Piraziz", "Şebinkarahisar", "Tirebolu", "Yağlıdere"],
+        "Gümüşhane": ["Kelkit", "Köse", "Kürtün", "Merkez", "Şiran", "Torul"],
+        "Hakkari": ["Çukurca", "Derecik", "Yüksekova", "Şemdinli", "Merkez"],
+        "Hatay": ["Altınözü", "Antakya", "Arsuz", "Belen", "Defne", "Dörtyol", "Erzin", "Hassa", "İskenderun", "Kırıkhan", "Kumlu", "Payas", "Reyhanlı", "Samandağ", "Yayladağı"],
+        "Isparta": ["Aksu", "Atabey", "Eğirdir", "Gelendost", "Gönen", "Keçiborlu", "Merkez", "Senirkent", "Sütçüler", "Şarkikaraağaç", "Uluborlu", "Yalvaç", "Yenişarbademli"],
+        "Mersin": ["Akdeniz", "Anamur", "Aydıncık", "Bozyazı", "Çamlıyayla", "Erdemli", "Gülnar", "Mezitli", "Mut", "Silifke", "Tarsus", "Toroslar", "Yenişehir"],
+        "İstanbul": ["Adalar", "Arnavutköy", "Ataşehir", "Avcılar", "Bağcılar", "Bahçelievler", "Bakırköy", "Başakşehir", "Bayrampaşa", "Beşiktaş", "Beykoz", "Beylikdüzü", "Beyoğlu", "Büyükçekmece", "Çatalca", "Çekmeköy", "Esenler", "Esenyurt", "Eyüpsultan", "Fatih", "Gaziosmanpaşa", "Güngören", "Kadıköy", "Kağıthane", "Kartal", "Küçükçekmece", "Maltepe", "Pendik", "Sancaktepe", "Sarıyer", "Silivri", "Sultanbeyli", "Sultangazi", "Şile", "Şişli", "Tuzla", "Ümraniye", "Üsküdar", "Zeytinburnu"],
+        "İzmir": ["Aliağa", "Balçova", "Bayındır", "Bayraklı", "Bergama", "Beydağ", "Bornova", "Buca", "Çeşme", "Çiğli", "Dikili", "Foça", "Gaziemir", "Güzelbahçe", "Karabağlar", "Karaburun", "Karşıyaka", "Kemalpaşa", "Kınık", "Kiraz", "Konak", "Menderes", "Menemen", "Narlıdere", "Ödemiş", "Seferihisar", "Selçuk", "Tire", "Torbalı", "Urla"],
+        "Kars": ["Akyaka", "Arpaçay", "Digor", "Kağızman", "Merkez", "Sarıkamış", "Selim", "Susuz"],
+        "Kastamonu": ["Abana", "Ağlı", "Araç", "Azdavay", "Bozkurt", "Cide", "Çatalzeytin", "Daday", "Devrekani", "Doğanyurt", "Hanönü", "İhsangazi", "İnebolu", "Küre", "Merkez", "Pınarbaşı", "Seydiler", "Şenpazar", "Taşköprü", "Tosya"],
+        "Kayseri": ["Akkışla", "Bünyan", "Develi", "Felahiye", "Hacılar", "İncesu", "Kocasinan", "Melikgazi", "Özvatan", "Pınarbaşı", "Sarıoğlan", "Sarız", "Talas", "Tomarza", "Yahyalı", "Yeşilhisar"],
+        "Kırklareli": ["Babaeski", "Demirköy", "Kofçaz", "Lüleburgaz", "Merkez", "Pehlivanköy", "Pınarhisar", "Vize"],
+        "Kırşehir": ["Akçakent", "Akpınar", "Boztepe", "Çiçekdağı", "Kaman", "Merkez", "Mucur"],
+        "Kocaeli": ["Başiskele", "Çayırova", "Derince", "Dilovası", "Gebze", "Gölcük", "İzmit", "Kandıra", "Karamürsel", "Kartepe", "Körfez"],
+        "Konya": ["Ahırlı", "Akören", "Akşehir", "Altınekin", "Beyşehir", "Bozkır", "Cihanbeyli", "Çeltik", "Çumra", "Derbent", "Derebucak", "Doğanhisar", "Emirgazi", "Ereğli", "Güneysınır", "Hadim", "Halkapınar", "Hüyük", "Ilgın", "Kadınhanı", "Karapınar", "Karatay", "Kulu", "Meram", "Sarayönü", "Selçuklu", "Seydişehir", "Taşkent", "Tuzlukçu", "Yalıhüyük", "Yunak"],
+        "Kütahya": ["Altıntaş", "Aslanapa", "Çavdarhisar", "Domaniç", "Dumlupınar", "Emet", "Gediz", "Hisarcık", "Merkez", "Pazarlar", "Şaphane", "Simav", "Tavşanlı"],
+        "Malatya": ["Akçadağ", "Arapgir", "Arguvan", "Battalgazi", "Darende", "Doğanşehir", "Doğanyol", "Hekimhan", "Kale", "Kuluncak", "Pütürge", "Yazıhan", "Yeşilyurt"],
+        "Manisa": ["Ahmetli", "Akhisar", "Alaşehir", "Demirci", "Gölmarmara", "Gördes", "Kırkağaç", "Köprübaşı", "Kula", "Salihli", "Sarıgöl", "Saruhanlı", "Selendi", "Soma", "Şehzadeler", "Turgutlu", "Yunusemre"],
+        "Kahramanmaraş": ["Afşin", "Andırın", "Çağlayancerit", "Dulkadiroğlu", "Ekinözü", "Elbistan", "Göksun", "Nurhak", "Onikişubat", "Pazarcık", "Türkoğlu"],
+        "Mardin": ["Artuklu", "Dargeçit", "Derik", "Kızıltepe", "Mazıdağı", "Midyat", "Nusaybin", "Ömerli", "Savur", "Yeşilli"],
+        "Muğla": ["Bodrum", "Dalaman", "Datça", "Fethiye", "Kavaklıdere", "Köyceğiz", "Marmaris", "Menteşe", "Milas", "Ortaca", "Seydikemer", "Ula", "Yatağan"],
+        "Muş": ["Bulanık", "Hasköy", "Korkut", "Malazgirt", "Merkez", "Varto"],
+        "Nevşehir": ["Acıgöl", "Avanos", "Derinkuyu", "Gülşehir", "Hacıbektaş", "Kozaklı", "Merkez", "Ürgüp"],
+        "Niğde": ["Altunhisar", "Bor", "Çamardı", "Çiftlik", "Merkez", "Ulukışla"],
+        "Ordu": ["Akkuş", "Altınordu", "Aybastı", "Çamaş", "Çatalpınar", "Çaybaşı", "Fatsa", "Gölköy", "Gülyalı", "Gürgentepe", "İkizce", "Kabadüz", "Kabataş", "Korgan", "Kumru", "Mesudiye", "Perşembe", "Ulubey", "Ünye"],
+        "Rize": ["Ardeşen", "Çamlıhemşin", "Çayeli", "Derepazarı", "Fındıklı", "Güneysu", "Hemşin", "İkizdere", "İyidere", "Kalkandere", "Merkez", "Pazar"],
+        "Sakarya": ["Adapazarı", "Akyazi", "Arifiye", "Erenler", "Ferizli", "Geyve", "Hendek", "Karapürçek", "Karasu", "Kaynarca", "Kocaali", "Pamukova", "Sapanca", "Serdivan", "Söğütlü", "Taraklı"],
+        "Samsun": ["19 Mayıs", "Alaçam", "Asarcık", "Atakum", "Bafra", "Canik", "Çarşamba", "Havza", "İlkadım", "Kavak", "Ladik", "Salıpazarı", "Tekkeköy", "Terme", "Vezirköprü", "Yakakent"],
+        "Siirt": ["Baykan", "Eruh", "Kurtalan", "Merkez", "Pervari", "Şirvan", "Tillo"],
+        "Sinop": ["Boyabat", "Dikmen", "Durağan", "Erfelek", "Gerze", "Merkez", "Saraydüzü", "Türkeli"],
+        "Sivas": ["Akıncılar", "Altınyayla", "Divriği", "Doğanşar", "Gemerek", "Gölova", "Gürün", "Hafik", "İmranlı", "Kangal", "Koyulhisar", "Merkez", "Suşehri", "Şarkışla", "Ulaş", "Yıldızeli", "Zara"],
+        "Tekirdağ": ["Çerkezköy", "Çorlu", "Ergene", "Hayrabolu", "Kapaklı", "Malkara", "Marmaraereğlisi", "Muratlı", "Saray", "Süleymanpaşa", "Şarköy"],
+        "Tokat": ["Almus", "Artova", "Başçiftlik", "Erbaa", "Merkez", "Niksar", "Pazar", "Reşadiye", "Sulusaray", "Turhal", "Yeşilyurt", "Zile"],
+        "Trabzon": ["Akçaabat", "Araklı", "Arsin", "Beşikdüzü", "Çarşıbaşı", "Çaykara", "Dernekpazarı", "Düzköy", "Hayrat", "Köprübaşı", "Maçka", "Of", "Ortahisar", "Sürmene", "Şalpazarı", "Tonya", "Vakfıkebir", "Yomra"],
+        "Tunceli": ["Çemişgezek", "Hozat", "Mazgirt", "Nazımiye", "Ovacık", "Pertek", "Pülümür", "Merkez"],
+        "Şanlıurfa": ["Akçakale", "Birecik", "Bozova", "Ceylanpınar", "Eyyübiye", "Halfeti", "Haliliye", "Harran", "Hilvan", "Karaköprü", "Siverek", "Suruç", "Viranşehir"],
+        "Uşak": ["Banaz", "Eşme", "Karahallı", "Merkez", "Sivaslı", "Ulubey"],
+        "Van": ["Bahçesaray", "Başkale", "Çaldıran", "Çatak", "Edremit", "Erciş", "Gevaş", "Gürpınar", "İpekyolu", "Muradiye", "Özalp", "Saray", "Tuşba"],
+        "Yozgat": ["Akdağmadeni", "Aydıncık", "Boğazlıyan", "Çandır", "Çayıralan", "Çekerek", "Kadışehri", "Merkez", "Saraykent", "Sarıkaya", "Sorgun", "Şefaatli", "Yenifakılı", "Yerköy"],
+        "Zonguldak": ["Alaplı", "Çaycuma", "Devrek", "Ereğli", "Gökçebey", "Kilimli", "Kozlu", "Merkez"],
+        "Aksaray": ["Ağaçören", "Eskil", "Gülağaç", "Güzelyurt", "Merkez", "Ortaköy", "Sarıyahşi", "Sultanhanı"],
+        "Bayburt": ["Aydıntepe", "Demirözü", "Merkez"],
+        "Karaman": ["Ayrancı", "Başyayla", "Ermenek", "Kazımkarabekir", "Merkez", "Sarıveliler"],
+        "Kırıkkale": ["Bahşılı", "Balışeyh", "Çelebi", "Delice", "Karakeçili", "Keskin", "Merkez", "Sulakyurt", "Yahşihan"],
+        "Batman": ["Beşiri", "Gercüş", "Hasankeyf", "Kozluk", "Merkez", "Sason"],
+        "Şırnak": ["Beytüşşebap", "Cizre", "Güçlükonak", "İdil", "Silopi", "Merkez", "Uludere"],
+        "Bartın": ["Amasra", "Kurucaşile", "Merkez", "Ulus"],
+        "Ardahan": ["Çıldır", "Damal", "Göle", "Hanak", "Merkez", "Posof"],
+        "Iğdır": ["Aralık", "Karakoyunlu", "Merkez", "Tuzluca"],
+        "Yalova": ["Altınova", "Armutlu", "Çınarcık", "Çiftlikköy", "Merkez", "Termal"],
+        "Karabük": ["Eflani", "Eskipazar", "Merkez", "Ovacık", "Safranbolu", "Yenice"],
+        "Kilis": ["Elbeyli", "Merkez", "Musabeyli", "Polateli"],
+        "Osmaniye": ["Bahçe", "Düziçi", "Hasanbeyli", "Kadirli", "Merkez", "Sumbas", "Toprakkale"],
+        "Düzce": ["Akçakoca", "Cumayeri", "Çilimli", "Gölyaka", "Gümüşova", "Kaynaşlı", "Merkez", "Yığılca"]
+    };
+
+    // --- FIREBASE BAĞLANTI AYARLARI ---
+    const firebaseConfig = {
+        apiKey: "AIzaSyCzBChDFzHQC5_GwnjmF6ywCTOZnahcoOo",
+        authDomain: "saha-ziyaret-formu.firebaseapp.com",
+        projectId: "saha-ziyaret-formu",
+        storageBucket: "saha-ziyaret-formu.firebasestorage.app",
+        messagingSenderId: "190599110339",
+        appId: "1:190599110339:web:9302190657404721c64c76",
+        measurementId: "G-YRE32MYX5S"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    let currentUser = "";
+    let isAdmin = false;
+    let globalVeriler = []; 
+    
+    // Admin ve Saha Kullanıcı Listesi (Varsayılan Şifre: "1")
+    const tanimliKullanicilar = {
+        // Adminler
+        "GGUNER": "1",
+        "MKUSCU": "1",
+        "KUTLUKUT": "1",
+        "BAZAT": "1",
+        "HSERT": "1",
+        // Saha Kullanıcıları
+        "UMITK": "1",
+        "ISOFAN": "1",
+        "KKIZIL": "1",
+        "TAKIN": "1",
+        "MKAYA": "1",
+        "KAKINCI": "1",
+        "EKILAVUZ": "1",
+        "BGUNAYDIN": "1"
+    };
+
+    const adminListesi = ["GGUNER", "MKUSCU", "KUTLUKUT", "BAZAT", "HSERT"];
+
+    const bolgeSatisYoneticileri = {
+        "Mustafa Kuşcu": ["Ümit Tahir KUTLUK", "Kartal Murat AKINCI"],
+        "Berk Azat": ["Tolga AKIN", "Eyup KILAVUZ", "Koray KIZIL"],
+        "Hürhan Sert": ["İbrahim Sofan", "Muhammed Mert KAYA", "Buğra GÜNAYDIN"]
+    };
+
+    const sahaBayiHaritasi = {
+      "Ümit Tahir KUTLUK": [
+        "200218 Bilge Otomobilcilik Çorum",
+        "200008 Bilge Otomobilcilik Ankara",
+        "200206 Karmot Otomotiv Adi Ortaklığı",
+        "200161 Ümit Madeni Yağ",
+        "200195 Anadolu Akü",
+        "200059 Hayzaranlar Otomotiv",
+        "200063 İsöz Akü Pazarlama",
+        "200163 Hedef Akü Otomotiv",
+        "200019 Dossa Enerji Sanayi",
+        "200205 Hidayet OKUMUŞ",
+        "200178 Tuncay Özkadif Oto Gani",
+        "203792 Murat Taşdemir İtimat Oto",
+        "200011 Elv Akü",
+        "203962 Emre Zobu Mepar Otomotiv"
+      ],
+      "Buğra GÜNAYDIN": [
+        "200025 Aktuğfırat Oto Yan San.",
+        "200201 Sürmen Otomotiv",
+        "200043 Tosun Ticaret",
+        "200169 M. Adnan Menlik Akü",
+        "200193 Mehmet Eroğlu",
+        "200199 Recep Çelik",
+        "200072 Tuzla Lastik",
+        "200083 Ergül Enerji Sanayi",
+        "204034 Yiğit Filtre Otomotiv"
+      ],
+      "Eyup KILAVUZ": [
+        "200040 Sunar Bilardo Salonu",
+        "200004 Sadıkoğulları Taşımacılık",
+        "200055 Elbeyli Petrol Ürünleri",
+        "200005 Furkan Akü ve Oto",
+        "200020 AKC Line Enerji",
+        "203765 İnter Yağ Petrol Ürün"
+      ],
+      "İbrahim Sofan": [
+        "200051 Maklas Akü Lastik",
+        "200044 Uğur Otomotiv İnş",
+        "200026 Eyüp Çatma Deniz Oto",
+        "200160 Ercan Demirbağ Karadeniz Akü",
+        "200045 Eroğlu Medikal Tur.",
+        "200192 Baskan Otomotiv",
+        "200200 Beyazlı Otomotiv",
+        "200070 Alacakaya Petrol Ürünleri",
+        "200053 Köseler Otomotiv Akü",
+        "200052 Öz Emek Otomotiv"
+      ],
+      "Kartal Murat AKINCI": [
+        "200164 Tacettinler Mühendislik Oto",
+        "200196 Cem Otomotiv Lastik",
+        "200060 Boğa Otomotiv",
+        "200002 Doğru-İş Otomotiv",
+        "200177 Merkez Ticaret",
+        "200006 Mustafa SAATÇİ otomotiv",
+        "200065 Feridun UĞUR",
+        "200035 Ahmet Aksu Otomotiv",
+        "203823 Mersin Prolas Lastik",
+        "204018 ACN Hayzaran akü",
+        "204019 Ahmet CİRİTÇİ Petrol",
+        "204033 Pozitif Üretim Enerji"
+      ],
+      "Koray KIZIL": [
+        "200056 Süleyman Erikçi",
+        "200202 Süzer Aküleri Otomotiv",
+        "200047 Şener Yılmaz",
+        "200168 Trakya Akü Pazarlama Tic",
+        "200167 Sezgin İş Akü",
+        "200080 Aktaşoğulları elektrik",
+        "200073 Süper Petrol",
+        "200081 Fatih Demirtaş",
+        "200075 SMB Petrol Ürünleri",
+        "200078 Bilmaksan Petrol Ürün",
+        "203918 Marmara Lastik"
+      ],
+      "Muhammed Mert KAYA": [
+        "200185 Alba Akü Lastik",
+        "200024 Orhan Demirel ve Ortağı",
+        "200054 Dikerler Akü İmalatı",
+        "200186 Vedat Yaşlıca Kaya",
+        "200204 Saffet Hamzadayı",
+        "200049 Süleyman YURT",
+        "200050 Er-Şan Otomotiv",
+        "200170 Ege Menlik Akü",
+        "200067 Salim Ergül Kızıldağ",
+        "203515 Aydınlar Otomotiv"
+      ],
+      "Tolga AKIN": [
+        "200018 Çetinler Akü San",
+        "200157 Vapa Otomotiv Pazarlama",
+        "200037 Osman Ayhan Varolan",
+        "200022 Celal Söğütlü",
+        "200062 Mehmet Selek Otomotiv",
+        "200017 Mustafa UYMAZ Akü",
+        "202568 Acar Madeni yağ"
+      ]
+    };
+
+    function yoneticileriGuncelle() {
+        const bmSelect = document.getElementById('bolge_muduru');
+        const bsySelect = document.getElementById('satis_yoneticisi');
+        const distributorSelect = document.getElementById('distributor');
+        const secilenBm = bmSelect.value;
+
+        bsySelect.innerHTML = '<option value="">Seçiniz...</option>';
+        distributorSelect.innerHTML = '<option value="">Önce Saha Yöneticisi Seçiniz...</option>';
+        distributorSelect.disabled = true;
+
+        if (secilenBm && bolgeSatisYoneticileri[secilenBm]) {
+            bolgeSatisYoneticileri[secilenBm].forEach(yonetici => {
+                let opt = document.createElement("option");
+                opt.value = yonetici;
+                opt.innerText = yonetici;
+                bsySelect.appendChild(opt);
+            });
+            bsySelect.disabled = false;
+        } else {
+            bsySelect.disabled = true;
+        }
+    }
+
+    function distributorleriGuncelle() {
+        const bsySelect = document.getElementById('satis_yoneticisi');
+        const distributorSelect = document.getElementById('distributor');
+        const secilenYonetici = bsySelect.value;
+
+        distributorSelect.innerHTML = '<option value="">Bayi/Distribütör Seçiniz...</option>';
+
+        if (secilenYonetici && sahaBayiHaritasi[secilenYonetici]) {
+            sahaBayiHaritasi[secilenYonetici].forEach(bayi => {
+                let opt = document.createElement("option");
+                opt.value = bayi;
+                opt.innerText = bayi;
+                distributorSelect.appendChild(opt);
+            });
+            distributorSelect.disabled = false;
+        } else {
+            distributorSelect.disabled = true;
+        }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('tarih').valueAsDate = new Date();
+        
+        const ilSelect = document.getElementById("il_secimi");
+        if (ilSelect) {
+            ilSelect.innerHTML = '<option value="">İl Seçiniz</option>';
+            const illerDizisi = Object.keys(ilIlceVerisi).sort();
+            illerDizisi.forEach(il => {
+                let opt = document.createElement("option");
+                opt.value = il;
+                opt.innerText = il;
+                ilSelect.appendChild(opt);
+            });
+        }
+    });
+
+    function ilceleriGuncelle() {
+        const ilSelect = document.getElementById("il_secimi");
+        const ilceSelect = document.getElementById("ilce_secimi");
+        const secilenIl = ilSelect.value;
+
+        ilceSelect.innerHTML = '<option value="">İlçe Seçiniz</option>';
+
+        if (secilenIl && ilIlceVerisi[secilenIl]) {
+            ilIlceVerisi[secilenIl].sort().forEach(ilce => {
+                let opt = document.createElement("option");
+                opt.value = ilce;
+                opt.innerText = ilce;
+                ilceSelect.appendChild(opt);
+            });
+        }
+    }
+
+    async function girisYap() {
+        const uInput = document.getElementById('loginUser').value.trim();
+        const u = uInput.toUpperCase(); 
+        const p = document.getElementById('loginPass').value.trim();
+
+        if(!u || !p) { alert("Lütfen kullanıcı adı ve şifrenizi giriniz."); return; }
+
+        try {
+            // Firebase üzerinden güncel şifreyi kontrol et (varsayılanlar hafızadan alınır)
+            const docRef = db.collection("kullaniciSifreleri").doc(u);
+            const doc = await docRef.get();
+            
+            let dogruSifre = tanimliKullanicilar[u];
+            if (doc.exists && doc.data().sifre) {
+                dogruSifre = doc.data().sifre;
+            }
+
+            if (tanimliKullanicilar[u] !== undefined && dogruSifre === p) {
+                girisBasarili(u);
+            } else {
+                alert("Hatalı kullanıcı adı veya şifre!");
+            }
+        } catch(error) {
+            // Firebase çevrimdışıysa statik şifre kontrolü yap
+            if (tanimliKullanicilar[u] !== undefined && tanimliKullanicilar[u] === p) {
+                girisBasarili(u);
+            } else {
+                alert("Giriş yapılamadı. Kullanıcı adı veya şifre hatalı.");
+            }
+        }
+    }
+
+    function girisBasarili(username) {
+        currentUser = username;
+        isAdmin = adminListesi.includes(username);
+
+        document.getElementById('currentUserBadge').innerText = (isAdmin ? "👑 ADMIN: " : "👤 ") + username;
+        document.getElementById('recordsTitle').innerText = isAdmin ? "Tüm Saha Ziyaret Kayıtları (Admin Görünümü)" : "Ziyaret Kayıtlarım";
+
+        document.getElementById('authSection').classList.add('hidden');
+        document.getElementById('mainSection').classList.remove('hidden');
+        verileriGetirVeListele();
+    }
+
+    async function sifreDegistirModal() {
+        const yeniSifre = prompt("Yeni şifrenizi giriniz:");
+        if (!yeniSifre) return;
+        
+        if (yeniSifre.trim().length < 1) {
+            alert("Şifre boş olamaz!");
+            return;
+        }
+
+        try {
+            await db.collection("kullaniciSifreleri").doc(currentUser).set({ sifre: yeniSifre.trim() });
+            tanimliKullanicilar[currentUser] = yeniSifre.trim();
+            alert("Şifreniz başarıyla değiştirildi!");
+        } catch(error) {
+            alert("Şifre değiştirilirken hata oluştu: " + error.message);
+        }
+    }
+
+    function cikisYap() {
+        currentUser = "";
+        isAdmin = false;
+        globalVeriler = [];
+        document.getElementById('mainSection').classList.add('hidden');
+        document.getElementById('authSection').classList.remove('hidden');
+        document.getElementById('loginUser').value = "";
+        document.getElementById('loginPass').value = "";
+    }
+
+    async function verileriGetirVeListele() {
+        try {
+            let snapshot;
+            if (isAdmin) {
+                // Admin tüm kayıtları çeker
+                snapshot = await db.collection("ziyaretler").get();
+            } else {
+                // Saha kullanıcısı sadece kendi kayıtlarını çeker
+                snapshot = await db.collection("ziyaretler")
+                                         .where("kullanici", "==", currentUser)
+                                         .get();
+            }
+
+            globalVeriler = [];
+            snapshot.forEach(doc => {
+                globalVeriler.push({ firebaseId: doc.id, ...doc.data() });
+            });
+            globalVeriler.sort((a, b) => a.id - b.id);
+            listeleEkraniniGuncelle();
+        } catch(error) {
+            console.error("Veriler çekilirken hata:", error);
+        }
+    }
+
+    async function kaydet() {
+        const isyeri = document.getElementById('isyeri_adi').value.trim();
+        if(!isyeri) { alert("Lütfen Bayi / İşyeri İsmi giriniz!"); return; }
+
+        const il = document.getElementById('il_secimi').value;
+        const ilce = document.getElementById('ilce_secimi').value;
+        const konumMetni = (il || ilce) ? `${il} / ${ilce}` : '';
+
+        const editId = document.getElementById('editId').value;
+
+        const record = {
+            id: editId ? parseInt(editId) : Date.now(),
+            kullanici: currentUser,
+            tarih: document.getElementById('tarih').value,
+            bolge_muduru: document.getElementById('bolge_muduru').value,
+            satis_yoneticisi: document.getElementById('satis_yoneticisi').value,
+            distributor: document.getElementById('distributor').value,
+            il: il,
+            ilce: ilce,
+            konum: konumMetni,
+            isyeri_adi: isyeri,
+            sahip_ad_soyad: document.getElementById('sahip_ad_soyad').value,
+            telefon: document.getElementById('telefon').value,
+            urun_adedi: document.getElementById('urun_adedi').value,
+            markalar: document.getElementById('markalar').value,
+            notlar: document.getElementById('notlar').value
+        };
+
+        try {
+            if(editId) {
+                const existing = globalVeriler.find(x => x.id === parseInt(editId));
+                if(existing && existing.firebaseId) {
+                    await db.collection("ziyaretler").doc(existing.firebaseId).set(record);
+                }
+            } else {
+                await db.collection("ziyaretler").add(record);
+            }
+
+            alert("Kayıt başarıyla buluta saklandı!");
+            formTemizle();
+            verileriGetirVeListele();
+        } catch(error) {
+            alert("Kayıt sırasında hata: " + error.message);
+        }
+    }
+
+    function formTemizle() {
+        document.getElementById('visitForm').reset();
+        document.getElementById('editId').value = "";
+        document.getElementById('tarih').valueAsDate = new Date();
+        document.getElementById('ilce_secimi').innerHTML = '<option value="">Önce İl Seçiniz</option>';
+        document.getElementById('satis_yoneticisi').innerHTML = '<option value="">Önce Bölge Müdürü Seçiniz...</option>';
+        document.getElementById('satis_yoneticisi').disabled = true;
+        document.getElementById('distributor').innerHTML = '<option value="">Önce Saha Yöneticisi Seçiniz...</option>';
+        document.getElementById('distributor').disabled = true;
+    }
+
+    function listeleEkraniniGuncelle() {
+        const listDiv = document.getElementById('recordsList');
+        listDiv.innerHTML = "";
+
+        if(globalVeriler.length === 0) {
+            listDiv.innerHTML = "<p style='color:var(--text-gray); font-size:12px;'>Kayıtlı ziyaret bulunmuyor.</p>";
+            return;
+        }
+
+        globalVeriler.slice().reverse().forEach(item => {
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'record-item';
+            
+            itemDiv.innerHTML = `
+                <div>
+                    <strong>${item.isyeri_adi}</strong> (${item.konum || 'Konum Yok'})<br>
+                    <small style="color:var(--text-gray);">Tarih: ${item.tarih} | Temsilci: <b>${item.kullanici}</b></small>
+                </div>
+                <div style="display: flex; gap: 6px;">
+                    <button class="btn-gray" onclick="duzenleKayit(${item.id})">Düzenle</button>
+                    <button class="btn-gray" style="background:var(--primary-red);" onclick="silKayit('${item.firebaseId}')">Sil</button>
+                </div>
+            `;
+            listDiv.appendChild(itemDiv);
+        });
+    }
+
+    function duzenleKayit(id) {
+        const item = globalVeriler.find(x => x.id === id);
+        if(!item) return;
+
+        document.getElementById('editId').value = item.id;
+        document.getElementById('tarih').value = item.tarih || "";
+        document.getElementById('bolge_muduru').value = item.bolge_muduru || "";
+        
+        yoneticileriGuncelle();
+        document.getElementById('satis_yoneticisi').value = item.satis_yoneticisi || "";
+        
+        distributorleriGuncelle();
+        document.getElementById('distributor').value = item.distributor || "";
+        
+        document.getElementById('il_secimi').value = item.il || "";
+        ilceleriGuncelle();
+        document.getElementById('ilce_secimi').value = item.ilce || "";
+        document.getElementById('isyeri_adi').value = item.isyeri_adi || "";
+        document.getElementById('sahip_ad_soyad').value = item.sahip_ad_soyad || "";
+        document.getElementById('telefon').value = item.telefon || "";
+        document.getElementById('urun_adedi').value = item.urun_adedi || "";
+        document.getElementById('markalar').value = item.markalar || "";
+        document.getElementById('notlar').value = item.notlar || "";
+
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    async function silKayit(firebaseId) {
+        if(!confirm("Bu kaydı silmek istediğinizden emin misiniz?")) return;
+
+        try {
+            await db.collection("ziyaretler").doc(firebaseId).delete();
+            verileriGetirVeListele();
+        } catch(error) {
+            alert("Silme sırasında hata oluştu: " + error.message);
+        }
+    }
+
+    function exceleAktar() {
+        if (!globalVeriler || globalVeriler.length === 0) {
+            alert("Aktarılacak kayıt bulunmuyor!");
+            return;
+        }
+
+        // Kayıtları tarih, bölge müdürü, satış yöneticisi ve distribütör kriterlerine göre gruplayalım
+        const gruplar = {};
+
+        globalVeriler.forEach(item => {
+            const tarih = item.tarih || "";
+            const bm = item.bolge_muduru || "";
+            const bsy = item.satis_yoneticisi || "";
+            const dist = item.distributor || "";
+            
+            const anahtar = `${tarih}_${bm}_${bsy}_${dist}`;
+
+            if (!gruplar[anahtar]) {
+                gruplar[anahtar] = {
+                    tarih: tarih,
+                    bolge_muduru: bm,
+                    satis_yoneticisi: bsy,
+                    distributor: dist,
+                    ziyaretler: []
+                };
+            }
+            gruplar[anahtar].ziyaretler.push(item);
+        });
+
+        // Başlık satırı (1. Satır)
+        const headerRow = [
+            "Tarih", "Bölge Müdürü", "Bölge Saha Yöneticisi", "Distribütör", "Ziyaret"
+        ];
+        for (let i = 1; i <= 16; i++) {
+            headerRow.push(`Bayi ${i}`);
+        }
+        headerRow.push("Toplam Ziyaret", "Hedef", "Hedef Gerçekleşme");
+
+        const excelRows = [headerRow];
+        const merges = []; 
+        let currentRow = 2;
+
+        Object.values(gruplar).forEach(grup => {
+            const zListesi = grup.ziyaretler;
+            const startR = currentRow;
+            const endR = startR + 5; // Her blok 6 satır (örn: 2'den 7'ye)
+
+            // Dikey hücre birleştirmeleri (A, B, C, D ve V, W, X)
+            merges.push({ s: { r: startR - 1, c: 0 }, e: { r: endR - 1, c: 0 } }); // Tarih (A)
+            merges.push({ s: { r: startR - 1, c: 1 }, e: { r: endR - 1, c: 1 } }); // Bölge Müdürü (B)
+            merges.push({ s: { r: startR - 1, c: 2 }, e: { r: endR - 1, c: 2 } }); // Bölge Saha Yöneticisi (C)
+            merges.push({ s: { r: startR - 1, c: 3 }, e: { r: endR - 1, c: 3 } }); // Distribütör (D)
+            merges.push({ s: { r: startR - 1, c: 21 }, e: { r: endR - 1, c: 21 } }); // Toplam Ziyaret (V)
+            merges.push({ s: { r: startR - 1, c: 22 }, e: { r: endR - 1, c: 22 } }); // Hedef (W)
+            merges.push({ s: { r: startR - 1, c: 23 }, e: { r: endR - 1, c: 23 } }); // Hedef Gerçekleşme (X)
+
+            // 6 dikey satır içeriği
+            let rowIsyeri = [grup.tarih, grup.bolge_muduru, grup.satis_yoneticisi, grup.distributor, "Bayi / İşyeri İsmi"];
+            let rowYetkili = ["", "", "", "", "Görüşülen Yetkili"];
+            let rowTelefon = ["", "", "", "", "Telefon"];
+            let rowStok = ["", "", "", "", "Mevcut Akü Stok Adedi"];
+            let rowRakip = ["", "", "", "", "Rakip / Diğer Markalar"];
+            let rowNotlar = ["", "", "", "", "Notlar "];
+
+            // 16 bayi sütununu doldur
+            for (let i = 0; i < 16; i++) {
+                const z = zListesi[i];
+                if (z) {
+                    rowIsyeri.push(z.isyeri_adi || "");
+                    rowYetkili.push(z.sahip_ad_soyad || "");
+                    rowTelefon.push(z.telefon || "");
+                    rowStok.push(z.urun_adedi || "");
+                    rowRakip.push(z.markalar || "");
+                    rowNotlar.push(z.notlar || "");
+                } else {
+                    rowIsyeri.push("");
+                    rowYetkili.push("");
+                    rowTelefon.push("");
+                    rowStok.push("");
+                    rowRakip.push("");
+                    rowNotlar.push("");
+                }
+            }
+
+            // Formüller (V sütunu: BAĞ_DEĞ_DOLU_SAY, W: Hedef, X: Gerçekleşme oranı)
+            let formulaToplam = `=BAĞ_DEĞ_DOLU_SAY(F${startR}:U${startR})`;
+            let formulaHedef = 7;
+            let formulaGerceklesme = `=V${startR}/W${startR}`;
+
+            rowIsyeri.push(formulaToplam, formulaHedef, formulaGerceklesme);
+            rowYetkili.push("", "", "");
+            rowTelefon.push("", "", "");
+            rowStok.push("", "", "");
+            rowRakip.push("", "", "");
+            rowNotlar.push("", "", "");
+
+            excelRows.push(rowIsyeri);
+            excelRows.push(rowYetkili);
+            excelRows.push(rowTelefon);
+            excelRows.push(rowStok);
+            excelRows.push(rowRakip);
+            excelRows.push(rowNotlar);
+
+            currentRow += 6;
+        });
+
+        const worksheet = XLSX.utils.aoa_to_sheet(excelRows);
+        worksheet['!merges'] = merges;
+
+        // Hücre Stilleri ve Renk Tanımlamaları
+        const thinBorder = {
+            top: { style: "thick", color: { rgb: "000000" } },
+            bottom: { style: "thick", color: { rgb: "000000" } },
+            left: { style: "thick", color: { rgb: "000000" } },
+            right: { style: "thick", color: { rgb: "000000" } }
+        };
+
+        const alignCenter = { horizontal: "center", vertical: "center", wrapText: true };
+        const range = XLSX.utils.decode_range(worksheet['!ref']);
+
+        // 1. Satır Stilleri (A1:E1 Yeşil, F1:U1 Ten Rengi, V1:X1 Açık Kırmızı)
+        for (let C = range.s.c; C <= range.e.c; ++C) {
+            const cellAddress = XLSX.utils.encode_cell({ r: 0, c: C });
+            if (!worksheet[cellAddress]) continue;
+            
+            if (!worksheet[cellAddress].s) worksheet[cellAddress].s = {};
+            worksheet[cellAddress].s.alignment = alignCenter;
+            worksheet[cellAddress].s.border = thinBorder;
+            worksheet[cellAddress].s.font = { bold: true };
+
+            if (C >= 0 && C <= 4) {
+                worksheet[cellAddress].s.fill = { fgColor: { rgb: "C6EFCE" } };
+                worksheet[cellAddress].s.font.color = { rgb: "000000" };
+            } else if (C >= 5 && C <= 20) {
+                worksheet[cellAddress].s.fill = { fgColor: { rgb: "FCE4D6" } };
+                worksheet[cellAddress].s.font.color = { rgb: "1F4E78" };
+            } else if (C >= 21 && C <= 23) {
+                worksheet[cellAddress].s.fill = { fgColor: { rgb: "F8CBAD" } };
+                worksheet[cellAddress].s.font.color = { rgb: "000000" };
+            }
+        }
+
+        // X Sütunu (Hedef Gerçekleşme - Sütun İndeksi 23) hücrelerine Yüzde (%) formatı uygulama
+        for (let R = 1; R <= range.e.r; ++R) {
+            const cellAddress = XLSX.utils.encode_cell({ r: R, c: 23 }); // X sütunu
+            if (worksheet[cellAddress]) {
+                if (!worksheet[cellAddress].s) worksheet[cellAddress].s = {};
+                worksheet[cellAddress].z = "0%"; // Excel yüzde formatı
+            }
+        }
+
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Saha Ziyaretleri");
+        XLSX.writeFile(workbook, "MutluAku_Saha_Ziyaretleri.xlsx");
+    }
+    
+</script>
+</body>
+</html>
