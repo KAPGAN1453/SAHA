@@ -782,7 +782,8 @@
                 gorusulenYetkili: item.sahip_ad_soyad || item.yetkili_kisi || "",
                 telefon: item.telefon || "",
                 mevcutAkuStok: item.urun_adedi || item.mevcut_stok || item.stok_adedi || item.stok || item.adet || "",
-                rakipMarkalar: item.markalar || item.rakip_markalar || ""
+                rakipMarkalar: item.markalar || item.rakip_markalar || "",
+                notlar: item.notlar || ""
             });
         });
 
@@ -806,10 +807,11 @@
                 "Görüşülen Yetkili",
                 "Telefon",
                 "Mevcut Akü Stok Adedi",
-                "Rakip / Diğer Markalar"
+                "Rakip / Diğer Markalar",
+                "Notlar"
             ];
 
-            for (let i = 0; i < 5; i++) {
+            for (let i = 0; i < 6; i++) {
                 const row = [
                     i === 0 ? grup.tarih : "",
                     i === 0 ? grup.bolgeMuduru : "",
@@ -830,8 +832,10 @@
                         row.push(bayiVerisi.telefon);
                     } else if (i === 3) {
                         row.push(bayiVerisi.mevcutAkuStok);
-                    } else {
+                    } else if (i === 4) {
                         row.push(bayiVerisi.rakipMarkalar);
+                    } else {
+                        row.push(bayiVerisi.notlar);
                     }
                 }
 
@@ -845,12 +849,12 @@
             }
 
             const startRow = currentRowIndex;
-            const endRow = currentRowIndex + 4;
+            const endRow = currentRowIndex + 5;
             const toplamSutunSayisi = headers.length;
             [0, 1, 2, 3, toplamSutunSayisi - 3, toplamSutunSayisi - 2, toplamSutunSayisi - 1].forEach(colIdx => {
                 merges.push({ s: { r: startRow, c: colIdx }, e: { r: endRow, c: colIdx } });
             });
-            currentRowIndex += 5;
+            currentRowIndex += 6;
         });
 
         const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
