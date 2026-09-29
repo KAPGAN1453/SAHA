@@ -102,7 +102,7 @@
         </div>
     </div>
 
-    <!-- GİRİŞ EKRANI -->
+    <!-- GİRİŞ EKRANI (Kayıt Ol kaldırıldı) -->
     <div id="authSection" class="auth-container">
         <div class="auth-title">Sistem Girişi</div>
         <div id="loginForm">
@@ -327,12 +327,15 @@
     let isAdmin = false;
     let globalVeriler = []; 
     
+    // Admin ve Saha Kullanıcı Listesi (Varsayılan Şifre: "1")
     const tanimliKullanicilar = {
+        // Adminler
         "GGUNER": "1",
         "MKUSCU": "1",
         "KUTLUKUT": "1",
         "BAZAT": "1",
         "HSERT": "1",
+        // Saha Kullanıcıları
         "UMITK": "1",
         "ISOFAN": "1",
         "KKIZIL": "1",
@@ -533,6 +536,7 @@
         if(!u || !p) { alert("Lütfen kullanıcı adı ve şifrenizi giriniz."); return; }
 
         try {
+            // Firebase üzerinden güncel şifreyi kontrol et (varsayılanlar hafızadan alınır)
             const docRef = db.collection("kullaniciSifreleri").doc(u);
             const doc = await docRef.get();
             
@@ -547,6 +551,7 @@
                 alert("Hatalı kullanıcı adı veya şifre!");
             }
         } catch(error) {
+            // Firebase çevrimdışıysa statik şifre kontrolü yap
             if (tanimliKullanicilar[u] !== undefined && tanimliKullanicilar[u] === p) {
                 girisBasarili(u);
             } else {
@@ -564,193 +569,356 @@
 
         document.getElementById('authSection').classList.add('hidden');
         document.getElementById('mainSection').classList.remove('hidden');
+        verileriGetirVeListele();
+    }
 
-        kayitlariGetir();
+    async function sifreDegistirModal() {
+        const yeniSifre = prompt("Yeni şifrenizi giriniz:");
+        if (!yeniSifre) return;
+        
+        if (yeniSifre.trim().length < 1) {
+            alert("Şifre boş olamaz!");
+            return;
+        }
+
+        try {
+            await db.collection("kullaniciSifreleri").doc(currentUser).set({ sifre: yeniSifre.trim() });
+            tanimliKullanicilar[currentUser] = yeniSifre.trim();
+            alert("Şifreniz başarıyla değiştirildi!");
+        } catch(error) {
+            alert("Şifre değiştirilirken hata oluştu: " + error.message);
+        }
     }
 
     function cikisYap() {
         currentUser = "";
         isAdmin = false;
+        globalVeriler = [];
         document.getElementById('mainSection').classList.add('hidden');
         document.getElementById('authSection').classList.remove('hidden');
         document.getElementById('loginUser').value = "";
         document.getElementById('loginPass').value = "";
     }
 
-    function sifreDegistirModal() {
-        let yeniSifre = prompt("Yeni şifrenizi giriniz:");
-        if (yeniSifre) {
-            db.collection("kullaniciSifreleri").doc(currentUser).set({ sifre: yeniSifre }, { merge: true })
-            .then(() => {
-                alert("Şifreniz başarıyla değiştirildi!");
-            })
-            .catch(error => {
-                alert("Şifre güncellenirken hata oluştu: " + error.message);
+    async function verileriGetirVeListele() {
+        try {
+            let snapshot;
+            if (isAdmin) {
+                // Admin tüm kayıtları çeker
+                snapshot = await db.collection("ziyaretler").get();
+            } else {
+                // Saha kullanıcısı sadece kendi kayıtlarını çeker
+                snapshot = await db.collection("ziyaretler")
+                                         .where("kullanici", "==", currentUser)
+                                         .get();
+            }
+
+            globalVeriler = [];
+            snapshot.forEach(doc => {
+                globalVeriler.push({ firebaseId: doc.id, ...doc.data() });
             });
+            globalVeriler.sort((a, b) => a.id - b.id);
+            listeleEkraniniGuncelle();
+        } catch(error) {
+            console.error("Veriler çekilirken hata:", error);
         }
     }
 
-    function kaydet() {
-        const id = document.getElementById('editId').value;
-        const veri = {
+    async function kaydet() {
+        const isyeri = document.getElementById('isyeri_adi').value.trim();
+        if(!isyeri) { alert("Lütfen Bayi / İşyeri İsmi giriniz!"); return; }
+
+        const il = document.getElementById('il_secimi').value;
+        const ilce = document.getElementById('ilce_secimi').value;
+        const konumMetni = (il || ilce) ? `${il} / ${ilce}` : '';
+
+        const editId = document.getElementById('editId').value;
+
+        const record = {
+            id: editId ? parseInt(editId) : Date.now(),
             kullanici: currentUser,
             tarih: document.getElementById('tarih').value,
             bolge_muduru: document.getElementById('bolge_muduru').value,
             satis_yoneticisi: document.getElementById('satis_yoneticisi').value,
             distributor: document.getElementById('distributor').value,
-            il_secimi: document.getElementById('il_secimi').value,
-            ilce_secimi: document.getElementById('ilce_secimi').value,
-            isyeri_adi: document.getElementById('isyeri_adi').value,
+            il: il,
+            ilce: ilce,
+            konum: konumMetni,
+            isyeri_adi: isyeri,
             sahip_ad_soyad: document.getElementById('sahip_ad_soyad').value,
             telefon: document.getElementById('telefon').value,
             urun_adedi: document.getElementById('urun_adedi').value,
             markalar: document.getElementById('markalar').value,
-            notlar: document.getElementById('notlar').value,
-            guncellemeZamani: firebase.firestore.FieldValue.serverTimestamp()
+            notlar: document.getElementById('notlar').value
         };
 
-        const koleksiyon = db.collection("sahaZiyaretleri");
+        try {
+            if(editId) {
+                const existing = globalVeriler.find(x => x.id === parseInt(editId));
+                if(existing && existing.firebaseId) {
+                    await db.collection("ziyaretler").doc(existing.firebaseId).set(record);
+                }
+            } else {
+                await db.collection("ziyaretler").add(record);
+            }
 
-        if (id) {
-            koleksiyon.doc(id).update(veri).then(() => {
-                alert("Ziyaret başarıyla güncellendi!");
-                formTemizle();
-                kayitlariGetir();
-            }).catch(err => alert("Güncelleme hatası: " + err.message));
-        } else {
-            koleksiyon.add(veri).then(() => {
-                alert("Ziyaret başarıyla kaydedildi!");
-                formTemizle();
-                kayitlariGetir();
-            }).catch(err => alert("Kayıt hatası: " + err.message));
+            alert("Kayıt başarıyla buluta saklandı!");
+            formTemizle();
+            verileriGetirVeListele();
+        } catch(error) {
+            alert("Kayıt sırasında hata: " + error.message);
         }
     }
 
     function formTemizle() {
-        document.getElementById('editId').value = "";
         document.getElementById('visitForm').reset();
+        document.getElementById('editId').value = "";
         document.getElementById('tarih').valueAsDate = new Date();
+        document.getElementById('ilce_secimi').innerHTML = '<option value="">Önce İl Seçiniz</option>';
         document.getElementById('satis_yoneticisi').innerHTML = '<option value="">Önce Bölge Müdürü Seçiniz...</option>';
         document.getElementById('satis_yoneticisi').disabled = true;
         document.getElementById('distributor').innerHTML = '<option value="">Önce Saha Yöneticisi Seçiniz...</option>';
         document.getElementById('distributor').disabled = true;
-        document.getElementById('ilce_secimi').innerHTML = '<option value="">Önce İl Seçiniz</option>';
     }
 
-    function kayitlariGetir() {
+    function listeleEkraniniGuncelle() {
         const listDiv = document.getElementById('recordsList');
-        listDiv.innerHTML = "Yükleniyor...";
+        listDiv.innerHTML = "";
 
-        let query = db.collection("sahaZiyaretleri");
-        if (!isAdmin) {
-            query = query.where("kullanici", "==", currentUser);
+        if(globalVeriler.length === 0) {
+            listDiv.innerHTML = "<p style='color:var(--text-gray); font-size:12px;'>Kayıtlı ziyaret bulunmuyor.</p>";
+            return;
         }
 
-        query.orderBy("guncellemeZamani", "desc").get().then((snapshot) => {
-            listDiv.innerHTML = "";
-            globalVeriler = [];
-
-            if (snapshot.empty) {
-                listDiv.innerHTML = "<p style='font-size:13px; color:var(--text-gray);'>Henüz kayıt bulunmuyor.</p>";
-                return;
-            }
-
-            snapshot.forEach((doc) => {
-                let item = doc.data();
-                item.id = doc.id;
-                globalVeriler.push(item);
-
-                let div = document.createElement('div');
-                div.className = 'record-item';
-                div.innerHTML = `
-                    <div>
-                        <strong style="font-size:14px; color:white;">${item.isyeri_adi || 'İsimsiz Bayi'}</strong><br>
-                        <span style="font-size:12px; color:var(--text-gray);">${item.tarih} | ${item.il_secimi || ''} / ${item.ilce_secimi || ''} (${item.kullanici})</span>
-                    </div>
-                    <div style="display:flex; gap:6px;">
-                        <button class="btn-gray" onclick="duzenle('${item.id}')">Düzenle</button>
-                        ${isAdmin ? `<button class="btn-gray" style="background:#800;" onclick="sil('${item.id}')">Sil</button>` : ''}
-                    </div>
-                `;
-                listDiv.appendChild(div);
-            });
-        }).catch(err => {
-            listDiv.innerHTML = "<p style='color:red;'>Kayıtlar getirilirken hata oluştu.</p>";
-            console.error(err);
+        globalVeriler.slice().reverse().forEach(item => {
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'record-item';
+            
+            itemDiv.innerHTML = `
+                <div>
+                    <strong>${item.isyeri_adi}</strong> (${item.konum || 'Konum Yok'})<br>
+                    <small style="color:var(--text-gray);">Tarih: ${item.tarih} | Temsilci: <b>${item.kullanici}</b></small>
+                </div>
+                <div style="display: flex; gap: 6px;">
+                    <button class="btn-gray" onclick="duzenleKayit(${item.id})">Düzenle</button>
+                    <button class="btn-gray" style="background:var(--primary-red);" onclick="silKayit('${item.firebaseId}')">Sil</button>
+                </div>
+            `;
+            listDiv.appendChild(itemDiv);
         });
     }
 
-    function duzenle(id) {
-        let veri = globalVeriler.find(x => x.id === id);
-        if (!veri) return;
+    function duzenleKayit(id) {
+        const item = globalVeriler.find(x => x.id === id);
+        if(!item) return;
 
-        document.getElementById('editId').value = veri.id;
-        document.getElementById('tarih').value = veri.tarih || "";
-        document.getElementById('bolge_muduru').value = veri.bolge_muduru || "";
+        document.getElementById('editId').value = item.id;
+        document.getElementById('tarih').value = item.tarih || "";
+        document.getElementById('bolge_muduru').value = item.bolge_muduru || "";
+        
         yoneticileriGuncelle();
+        document.getElementById('satis_yoneticisi').value = item.satis_yoneticisi || "";
         
-        document.getElementById('satis_yoneticisi').value = veri.satis_yoneticisi || "";
         distributorleriGuncelle();
+        document.getElementById('distributor').value = item.distributor || "";
         
-        document.getElementById('distributor').value = veri.distributor || "";
-        document.getElementById('il_secimi').value = veri.il_secimi || "";
+        document.getElementById('il_secimi').value = item.il || "";
         ilceleriGuncelle();
-        
-        document.getElementById('ilce_secimi').value = veri.ilce_secimi || "";
-        document.getElementById('isyeri_adi').value = veri.isyeri_adi || "";
-        document.getElementById('sahip_ad_soyad').value = veri.sahip_ad_soyad || "";
-        document.getElementById('telefon').value = veri.telefon || "";
-        document.getElementById('urun_adedi').value = veri.urun_adedi || "";
-        document.getElementById('markalar').value = veri.markalar || "";
-        document.getElementById('notlar').value = veri.notlar || "";
+        document.getElementById('ilce_secimi').value = item.ilce || "";
+        document.getElementById('isyeri_adi').value = item.isyeri_adi || "";
+        document.getElementById('sahip_ad_soyad').value = item.sahip_ad_soyad || "";
+        document.getElementById('telefon').value = item.telefon || "";
+        document.getElementById('urun_adedi').value = item.urun_adedi || "";
+        document.getElementById('markalar').value = item.markalar || "";
+        document.getElementById('notlar').value = item.notlar || "";
 
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    function sil(id) {
-        if (confirm("Bu kaydı silmek istediğinize emin misiniz?")) {
-            db.collection("sahaZiyaretleri").doc(id).delete().then(() => {
-                alert("Kayıt silindi.");
-                kayitlariGetir();
-            }).catch(err => alert("Silme hatası: " + err.message));
+    async function silKayit(firebaseId) {
+        if(!confirm("Bu kaydı silmek istediğinizden emin misiniz?")) return;
+
+        try {
+            await db.collection("ziyaretler").doc(firebaseId).delete();
+            verileriGetirVeListele();
+        } catch(error) {
+            alert("Silme sırasında hata oluştu: " + error.message);
         }
     }
 
     function exceleAktar() {
-        if (globalVeriler.length === 0) {
-            alert("Aktarılacak kayıt bulunmuyor.");
+        if (!globalVeriler || globalVeriler.length === 0) {
+            alert("Aktarılacak kayıt bulunmuyor!");
             return;
         }
 
-        let excelData = globalVeriler.map(item => {
-            // Markalar ve Notlar alanlarını birleştirme işlemi
-            let rakipVeNotlar = item.markalar || "";
-            if (item.notlar) {
-                rakipVeNotlar = rakipVeNotlar ? (rakipVeNotlar + " | Notlar: " + item.notlar) : ("Notlar: " + item.notlar);
+        // Aynı günün farklı bayi işaretlemelerini tek blokta topla; bayi sütunları yan yana oluşsun.
+        const raporMap = {};
+        globalVeriler.forEach(item => {
+            const tarih = item.tarih || item.Tarih || "";
+            const bolgeMuduru = item.bolge_muduru || item.bolgeMuduru || "";
+            const bolgeSahaYonetici = item.satis_yoneticisi || item.satis_yoneti || item.kullanici || "";
+            const distributor = item.distributor || item.isyeri_adi || "";
+            // Distribütörü anahtara katma: aynı gün farklı işaretlenen bayiler Bayi 1, Bayi 2...
+            // olarak aynı Excel bloğunda yan yana aktarılmalıdır.
+            const key = `${tarih}_${bolgeMuduru}_${bolgeSahaYonetici}`;
+
+            if (!raporMap[key]) {
+                raporMap[key] = {
+                    tarih,
+                    bolgeMuduru,
+                    bolgeSahaYonetici,
+                    distributors: [],
+                    bayiler: []
+                };
             }
 
-            return {
-                "Kullanıcı": item.kullanici || "",
-                "Ziyaret Tarihi": item.tarih || "",
-                "Bölge Müdürü": item.bolge_muduru || "",
-                "Bölge Satış Yöneticisi": item.satis_yoneticisi || "",
-                "Distribütör / Bayi": item.distributor || "",
-                "İl": item.il_secimi || "",
-                "İlçe": item.ilce_secimi || "",
-                "Bayi / İşyeri İsmi": item.isyeri_adi || "",
-                "Görüşülen Yetkili": item.sahip_ad_soyad || "",
-                "Telefon": item.telefon || "",
-                "Mevcut Akü Stok Adedi": item.urun_adedi || "",
-                "Rakip / Diğer Markalar": rakipVeNotlar
-            };
+            if (distributor && !raporMap[key].distributors.includes(distributor)) {
+                raporMap[key].distributors.push(distributor);
+            }
+
+            raporMap[key].bayiler.push({
+                isyeriAdi: item.isyeri_adi || "",
+                gorusulenYetkili: item.sahip_ad_soyad || item.yetkili_kisi || "",
+                telefon: item.telefon || "",
+                mevcutAkuStok: item.urun_adedi || item.mevcut_stok || item.stok_adedi || item.stok || item.adet || "",
+                rakipMarkalar: item.markalar || item.rakip_markalar || ""
+            });
         });
 
-        const worksheet = XLSX.utils.json_to_sheet(excelData);
+        // ADMIN ile aynı: gruplar içindeki en yüksek bayi sayısı kadar sütun oluştur.
+        let maxBayiSayisi = 1;
+        Object.values(raporMap).forEach(grup => {
+            maxBayiSayisi = Math.max(maxBayiSayisi, grup.bayiler.length);
+        });
+
+        const sheetData = [];
+        const headers = ["Tarih", "Bölge Müdürü", "Bölge Saha Yöneticisi", "Distribütör", "Ziyaret"];
+        for (let b = 1; b <= maxBayiSayisi; b++) headers.push(`Bayi ${b}`);
+        headers.push("Toplam Ziyaret", "Hedef", "Hedef Gerçekleşme");
+        sheetData.push(headers);
+
+        const merges = [];
+        let currentRowIndex = 1;
+        Object.values(raporMap).forEach(grup => {
+            const satirIsmi = [
+                "Bayi / İşyeri İsmi",
+                "Görüşülen Yetkili",
+                "Telefon",
+                "Mevcut Akü Stok Adedi",
+                "Rakip / Diğer Markalar"
+            ];
+
+            for (let i = 0; i < 5; i++) {
+                const row = [
+                    i === 0 ? grup.tarih : "",
+                    i === 0 ? grup.bolgeMuduru : "",
+                    i === 0 ? grup.bolgeSahaYonetici : "",
+                    i === 0 ? grup.distributors.join(" / ") : "",
+                    satirIsmi[i]
+                ];
+
+                for (let b = 0; b < maxBayiSayisi; b++) {
+                    const bayiVerisi = grup.bayiler[b];
+                    if (!bayiVerisi) {
+                        row.push("");
+                    } else if (i === 0) {
+                        row.push(bayiVerisi.isyeriAdi);
+                    } else if (i === 1) {
+                        row.push(bayiVerisi.gorusulenYetkili);
+                    } else if (i === 2) {
+                        row.push(bayiVerisi.telefon);
+                    } else if (i === 3) {
+                        row.push(bayiVerisi.mevcutAkuStok);
+                    } else {
+                        row.push(bayiVerisi.rakipMarkalar);
+                    }
+                }
+
+                const toplamZiyaret = grup.bayiler.length;
+                const hedef = 7;
+                const gerceklesmeYuzdesi = Math.round((toplamZiyaret / hedef) * 100) + "%";
+                row.push(i === 0 ? toplamZiyaret : "");
+                row.push(i === 0 ? hedef : "");
+                row.push(i === 0 ? gerceklesmeYuzdesi : "");
+                sheetData.push(row);
+            }
+
+            const startRow = currentRowIndex;
+            const endRow = currentRowIndex + 4;
+            const toplamSutunSayisi = headers.length;
+            [0, 1, 2, 3, toplamSutunSayisi - 3, toplamSutunSayisi - 2, toplamSutunSayisi - 1].forEach(colIdx => {
+                merges.push({ s: { r: startRow, c: colIdx }, e: { r: endRow, c: colIdx } });
+            });
+            currentRowIndex += 5;
+        });
+
+        const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
+        worksheet['!merges'] = merges;
+
+        const thinBorder = {
+            top: { style: "thin", color: { rgb: "000000" } },
+            bottom: { style: "thin", color: { rgb: "000000" } },
+            left: { style: "thin", color: { rgb: "000000" } },
+            right: { style: "thin", color: { rgb: "000000" } }
+        };
+
+        const range = XLSX.utils.decode_range(worksheet['!ref']);
+        for (let R = range.s.r; R <= range.e.r; ++R) {
+            for (let C = range.s.c; C <= range.e.c; ++C) {
+                const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
+                if (!worksheet[cellAddress]) worksheet[cellAddress] = { t: 's', v: '' };
+                if (!worksheet[cellAddress].s) worksheet[cellAddress].s = {};
+                worksheet[cellAddress].s.alignment = { vertical: "center", horizontal: "center", wrapText: false };
+                worksheet[cellAddress].s.border = thinBorder;
+
+                if (R >= 1) {
+                    worksheet[cellAddress].s.font = { name: "Calibri", sz: 10, color: { rgb: "000000" } };
+                    if (R % 5 === 2) {
+                        worksheet[cellAddress].t = 's';
+                        worksheet[cellAddress].v = String(worksheet[cellAddress].v || "");
+                    }
+                }
+
+                if (R === 0) {
+                    worksheet[cellAddress].s.font = { name: "Calibri", sz: 11, bold: true, color: { rgb: "000000" } };
+                    if (C >= 0 && C <= 4) {
+                        worksheet[cellAddress].s.fill = { patternType: "solid", fgColor: { rgb: "D3D3D3" } };
+                    } else if (C >= 5 && C < range.e.c - 2) {
+                        worksheet[cellAddress].s.fill = { patternType: "solid", fgColor: { rgb: "C6EFCE" } };
+                    } else {
+                        worksheet[cellAddress].s.fill = { patternType: "solid", fgColor: { rgb: "D3D3D3" } };
+                    }
+                }
+            }
+        }
+
         const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Ziyaretler");
-        
-        XLSX.writeFile(workbook, "Saha_Ziyaret_Raporu.xlsx");
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Saha Ziyaretleri");
+        XLSX.writeFile(workbook, "Mutlu_Aku_Saha_Ziyaret_Raporu.xlsx");
     }
+    
 </script>
+    <script>
+      // PWA service worker: GitHub Pages'teki yeni sürümü otomatik algılar.
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', async () => {
+          try {
+            const registration = await navigator.serviceWorker.register('./sw.js', { scope: './' });
+            registration.addEventListener('updatefound', () => {
+              const worker = registration.installing;
+              if (!worker) return;
+              worker.addEventListener('statechange', () => {
+                if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+                  const update = document.createElement('div');
+                  update.innerHTML = '<div style="position:fixed;left:12px;right:12px;bottom:12px;z-index:9999;background:#d32f2f;color:white;padding:14px 16px;border-radius:10px;box-shadow:0 4px 18px #0008;font-size:14px">Yeni sürüm hazır. <button style="float:right;background:white;color:#9a0007;border:0;border-radius:6px;padding:6px 10px;font-weight:bold" onclick="location.reload()">Güncelle</button></div>';
+                  document.body.appendChild(update);
+                }
+              });
+            });
+          } catch (error) { console.warn('Service worker kaydı yapılamadı:', error); }
+        });
+      }
+    </script>
 </body>
 </html>
