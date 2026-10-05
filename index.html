@@ -64,6 +64,7 @@
         }
 
         input:focus, select:focus, textarea:focus { border-color: var(--primary-red); }
+        input:disabled, select:disabled, textarea:disabled { opacity: 0.6; cursor: not-allowed; }
         
         select option { 
             background-color: #2d2d2d !important; 
@@ -155,7 +156,7 @@
 
             <div class="form-group">
                 <label>Distribütör / Bayi</label>
-                <select id="distributor" disabled>
+                <select id="distributor" disabled onchange="durumSecimiDegisti()">
                     <option value="">Önce Saha Yöneticisi Seçiniz...</option>
                 </select>
             </div>
@@ -514,6 +515,25 @@
         } else {
             distributorSelect.disabled = true;
         }
+
+        durumSecimiDegisti();
+    }
+
+    function durumSecimiMi() {
+        return ozelDurumSecenekleri.includes(document.getElementById('distributor').value);
+    }
+
+    function durumSecimiDegisti() {
+        const durumSecildi = durumSecimiMi();
+        const pasifOlacakAlanlar = [
+            'bolge_muduru', 'satis_yoneticisi', 'il_secimi', 'ilce_secimi',
+            'isyeri_adi', 'sahip_ad_soyad', 'telefon', 'urun_adedi', 'markalar', 'notlar'
+        ];
+
+        pasifOlacakAlanlar.forEach(id => {
+            const alan = document.getElementById(id);
+            if (alan) alan.disabled = durumSecildi;
+        });
     }
 
     function tarihiSinirla() {
@@ -663,7 +683,9 @@
     }
 
     async function kaydet() {
-        const isyeri = document.getElementById('isyeri_adi').value.trim();
+        const secilenDistributor = document.getElementById('distributor').value;
+        const durumKaydi = ozelDurumSecenekleri.includes(secilenDistributor);
+        const isyeri = durumKaydi ? secilenDistributor : document.getElementById('isyeri_adi').value.trim();
         if(!isyeri) { alert("Lütfen Bayi / İşyeri İsmi giriniz!"); return; }
 
         const il = document.getElementById('il_secimi').value;
@@ -678,16 +700,16 @@
             tarih: document.getElementById('tarih').value,
             bolge_muduru: document.getElementById('bolge_muduru').value,
             satis_yoneticisi: document.getElementById('satis_yoneticisi').value,
-            distributor: document.getElementById('distributor').value,
+            distributor: secilenDistributor,
             il: il,
             ilce: ilce,
             konum: konumMetni,
             isyeri_adi: isyeri,
-            sahip_ad_soyad: document.getElementById('sahip_ad_soyad').value,
-            telefon: document.getElementById('telefon').value,
-            urun_adedi: document.getElementById('urun_adedi').value,
-            markalar: document.getElementById('markalar').value,
-            notlar: document.getElementById('notlar').value
+            sahip_ad_soyad: durumKaydi ? "" : document.getElementById('sahip_ad_soyad').value,
+            telefon: durumKaydi ? "" : document.getElementById('telefon').value,
+            urun_adedi: durumKaydi ? "" : document.getElementById('urun_adedi').value,
+            markalar: durumKaydi ? "" : document.getElementById('markalar').value,
+            notlar: durumKaydi ? "" : document.getElementById('notlar').value
         };
 
         try {
@@ -717,6 +739,7 @@
         document.getElementById('satis_yoneticisi').disabled = true;
         document.getElementById('distributor').innerHTML = '<option value="">Önce Saha Yöneticisi Seçiniz...</option>';
         document.getElementById('distributor').disabled = true;
+        durumSecimiDegisti();
     }
 
     function listeleEkraniniGuncelle() {
@@ -759,6 +782,7 @@
         
         distributorleriGuncelle();
         document.getElementById('distributor').value = item.distributor || "";
+        durumSecimiDegisti();
         
         document.getElementById('il_secimi').value = item.il || "";
         ilceleriGuncelle();
@@ -952,12 +976,16 @@
               if (!worker) return;
               worker.addEventListener('statechange', () => {
                 if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+                  if (document.getElementById('saha-update-banner')) return;
                   const update = document.createElement('div');
+                  update.id = 'saha-update-banner';
                   update.innerHTML = '<div style="position:fixed;left:12px;right:12px;bottom:12px;z-index:9999;background:#d32f2f;color:white;padding:14px 16px;border-radius:10px;box-shadow:0 4px 18px #0008;font-size:14px">Yeni sürüm hazır. <button style="float:right;background:white;color:#9a0007;border:0;border-radius:6px;padding:6px 10px;font-weight:bold" onclick="location.reload()">Güncelle</button></div>';
                   document.body.appendChild(update);
                 }
               });
             });
+            // GitHub Pages'e yeni commit gönderildiğinde tarayıcıdan hemen kontrol etmesini ister.
+            await registration.update();
           } catch (error) { console.warn('Service worker kaydı yapılamadı:', error); }
         });
       }
