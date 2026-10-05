@@ -1,4 +1,4 @@
-const CACHE = 'saha-shell-v2';
+const CACHE = 'saha-shell-v3';
 const APP_SHELL = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', event => {

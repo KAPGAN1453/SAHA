@@ -132,8 +132,8 @@
             <input type="hidden" id="editId">
             
             <div class="form-group">
-                <label>Ziyaret Tarihi (Bugün)</label>
-                <input type="date" id="tarih" readonly required>
+                <label>Ziyaret Tarihi (Bugün veya Dün)</label>
+                <input type="date" id="tarih" required>
             </div>
 
             <div class="form-group">
@@ -337,6 +337,7 @@
         "HSERT": "1",
         // Saha Kullanıcıları
         "UMITK": "1",
+        "UKUTLUK": "1",
         "ISOFAN": "1",
         "KKIZIL": "1",
         "TAKIN": "1",
@@ -347,6 +348,14 @@
     };
 
     const adminListesi = ["GGUNER", "MKUSCU", "KUTLUKUT", "BAZAT", "HSERT"];
+
+    // Bu kullanıcılar için distribütör listesine saha dışı durum seçenekleri eklenir.
+    // UMITK mevcut giriş adıdır; UKUTLUK geriye dönük uyumluluk için desteklenir.
+    const ozelDurumKullanicilari = [
+        "UMITK", "UKUTLUK", "KAKINCI", "TAKIN", "EKILAVUZ",
+        "ISOFAN", "BGUNAYDIN", "MKAYA", "KKIZIL"
+    ];
+    const ozelDurumSecenekleri = ["İzinli", "Eğitim", "Resmi Tatil", "İş Seyahati"];
 
     const bolgeSatisYoneticileri = {
         "Mustafa Kuşcu": ["Ümit Tahir KUTLUK", "Kartal Murat AKINCI"],
@@ -489,14 +498,43 @@
                 opt.innerText = bayi;
                 distributorSelect.appendChild(opt);
             });
+
+            if (ozelDurumKullanicilari.includes(currentUser)) {
+                const durumGrubu = document.createElement("optgroup");
+                durumGrubu.label = "Saha Durumu";
+                ozelDurumSecenekleri.forEach(durum => {
+                    const opt = document.createElement("option");
+                    opt.value = durum;
+                    opt.innerText = durum;
+                    durumGrubu.appendChild(opt);
+                });
+                distributorSelect.appendChild(durumGrubu);
+            }
             distributorSelect.disabled = false;
         } else {
             distributorSelect.disabled = true;
         }
     }
 
+    function tarihiSinirla() {
+        const tarihInput = document.getElementById('tarih');
+        if (!tarihInput) return;
+
+        const bugun = new Date();
+        const bugunMetni = [bugun.getFullYear(), String(bugun.getMonth() + 1).padStart(2, '0'), String(bugun.getDate()).padStart(2, '0')].join('-');
+        const dun = new Date(bugun);
+        dun.setDate(dun.getDate() - 1);
+        const dunMetni = [dun.getFullYear(), String(dun.getMonth() + 1).padStart(2, '0'), String(dun.getDate()).padStart(2, '0')].join('-');
+
+        tarihInput.min = dunMetni;
+        tarihInput.max = bugunMetni;
+        if (!tarihInput.value || tarihInput.value < dunMetni || tarihInput.value > bugunMetni) {
+            tarihInput.value = bugunMetni;
+        }
+    }
+
     window.addEventListener('DOMContentLoaded', () => {
-        document.getElementById('tarih').valueAsDate = new Date();
+        tarihiSinirla();
         
         const ilSelect = document.getElementById("il_secimi");
         if (ilSelect) {
@@ -673,7 +711,7 @@
     function formTemizle() {
         document.getElementById('visitForm').reset();
         document.getElementById('editId').value = "";
-        document.getElementById('tarih').valueAsDate = new Date();
+        tarihiSinirla();
         document.getElementById('ilce_secimi').innerHTML = '<option value="">Önce İl Seçiniz</option>';
         document.getElementById('satis_yoneticisi').innerHTML = '<option value="">Önce Bölge Müdürü Seçiniz...</option>';
         document.getElementById('satis_yoneticisi').disabled = true;
